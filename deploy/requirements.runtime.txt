@@ -1,0 +1,43 @@
+# ---- Core scientific / utils ----
+numpy==1.26.4
+scipy==1.12.0
+tqdm==4.66.4
+einops==0.8.0
+networkx==3.3
+matplotlib==3.8.4
+imageio==2.34.1
+Pillow==10.3.0
+
+# ---- OpenCV (headless) ----
+opencv-python-headless==4.10.0.84
+
+# ---- Open3D (CPU wheel) ----
+open3d==0.18.0
+
+# ---- Grounded-SAM2 stack ----
+transformers==4.43.3
+timm==0.9.7
+# groundingdino / segment-anything는 종종 git 설치가 필요.
+# 가급적 내부 vendor 또는 사전 빌드된 패키지를 쓰는 게 안정적.
+# 아래 두 줄 중 하나 택일(공식 릴리즈가 있으면 그것 사용)
+segment-anything==1.0
+
+# ---- Video / IO helpers ----
+pyyaml==6.0.1
+
+# ---- Pointcept / training helpers ----
+scikit-learn==1.4.2
+wandb==0.17.4
+
+transformations==2021.6.6
+pandas==2.2.2
+trimesh==4.4.1
+
+iopath==0.1.10
+fvcore==0.1.5.post20221221
+yacs==0.1.8
+supervision==0.23.0
+
+pycocotools==2.0.7
+
+yapf==0.43.0

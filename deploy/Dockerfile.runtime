@@ -1,0 +1,65 @@
+# 배포용 러untime 이미지: Isaac Lab 2.1.0
+FROM nvcr.io/nvidia/isaac-lab:2.1.0
+
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+      git curl wget ca-certificates tini \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/wld
+COPY deploy/requirements.runtime.txt /opt/wld/requirements.runtime.txt
+
+# 🔑 빌드 격리 OFF → sdist가 torch를 필요로 할 때 현재 환경의 torch 사용
+ENV PIP_NO_BUILD_ISOLATION=1
+
+# 1) PyTorch/cu124 조합 (Isaac Lab 요구 버전과 일치)
+#    참고: 공식 이전 버전 매트릭스에 cu124 휠 제공됨
+#    https://download.pytorch.org/whl/cu124  (torch 2.5.1 / torchvision 0.20.1)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /workspace/isaaclab/_isaac_sim/python.sh -m pip install --upgrade pip && \
+    /workspace/isaaclab/_isaac_sim/python.sh -m pip install \
+      --index-url https://download.pytorch.org/whl/cu124 \
+      torch==2.5.1 torchvision==0.20.1
+
+# 2) PyG(+확장) — torch 2.5.1 + cu124에 맞는 휠에서 설치
+#    링크 인덱스: https://data.pyg.org/whl/ (torch-2.5.1+cu124.html 존재)
+RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install \
+      torch_geometric==2.6.1 \
+      pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv \
+      -f https://data.pyg.org/whl/torch-2.5.1+cu124.html
+
+# 3) 나머지 의존성
+RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-build-isolation -r /opt/wld/requirements.runtime.txt
+
+# 프로젝트 소스
+WORKDIR /workspace
+COPY . /workspace/welding_line_detection
+RUN mkdir -p /data /outputs
+
+# 엔트리포인트 스크립트
+COPY deploy/entrypoint_wld.sh /usr/local/bin/wld
+RUN chmod +x /usr/local/bin/wld
+
+# 런타임 환경
+ENV PYTHONUNBUFFERED=1
+
+# 코드 루트를 작업 디렉터리로
+WORKDIR /workspace/welding_line_detection
+
+# 필요한 모듈 경로를 '완전히' 지정 (이전 PYTHONPATH에 의존 X)
+ENV PYTHONPATH=/workspace/welding_line_detection:/workspace/welding_line_detection/script:/workspace/welding_line_detection/FoundationStereo:/workspace/welding_line_detection/Grounded-SAM-2:/workspace/welding_line_detection/Pointcept
+
+# 기본 엔트리포인트를 wld로 (tini로 신호 처리)
+ENTRYPOINT ["/usr/bin/tini","--","/usr/local/bin/wld"]
+
+# 기본 커맨드 (도움말)
+CMD ["help"]
+
+# (이미 설치했다면 생략 가능) 확장 빌드용 툴
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential ninja-build && \
+    rm -rf /var/lib/apt/lists/*
+
+# GroundingDINO CUDA 확장 빌드 & 설치
+WORKDIR /workspace/welding_line_detection/Grounded-SAM-2/grounding_dino
+RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install -v --no-build-isolation .
