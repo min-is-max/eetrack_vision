@@ -1503,8 +1503,9 @@ class SimpleSemSegTester(TesterBase):
             res_gt = robust_curve_from_pointcloud(coord[gt_mask].cpu().numpy(), voxel_size=0.02, sor_k=16, sor_std_ratio=1.0,
                                                knn_k=8, spline_s=0.0005, iter_refine=2, outlier_thresh_factor=3.0, plot=False)
             edge_pred_pcd = get_point_cloud(coord[pred_mask], color=np.array([[1, 0, 0]]), verbose=False)[0]
-            coord_pred_pcd, coord_pred_ids = edge_pred_pcd.remove_radius_outlier(nb_points=5,radius=0.005)
+            coord_pred_pcd, coord_pred_ids = edge_pred_pcd.remove_radius_outlier(nb_points=10,radius=0.005)
             coord_pred = np.asarray(coord_pred_pcd.points)
+            
             res = robust_curve_from_pointcloud(coord_pred, voxel_size=0.02, sor_k=16, sor_std_ratio=1.0,
                                                knn_k=8, spline_s=0.0005, iter_refine=2, outlier_thresh_factor=3.0, plot=False)
 
@@ -1536,50 +1537,51 @@ class SimpleSemSegTester(TesterBase):
             if self.verbose or line_err > 0.01:
                 # o3d.visualization.draw_geometries([scene_pcd, edge_FN_pcd, edge_TP_pcd, edge_FP_pcd])
                 o3d.visualization.draw_geometries([scene_pcd, coord_pred_pcd, spl_pcd])
+                # o3d.io.write_point_cloud()
                 # outlier removal
 
-        print("Mean line error from GT: ", np.mean(line_gt_errs))
-        print("Std line error from GT: ", np.std(line_gt_errs))
-        print("Mean line error: ", np.mean(line_errs))
-        print("Std line error: ", np.std(line_errs))
+        # print("Mean line error from GT: ", np.mean(line_gt_errs))
+        # print("Std line error from GT: ", np.std(line_gt_errs))
+        # print("Mean line error: ", np.mean(line_errs))
+        # print("Std line error: ", np.std(line_errs))
 
-        logger.info("Syncing ...")
-        comm.synchronize()
-        record_sync = comm.gather(record, dst=0)
+        # logger.info("Syncing ...")
+        # comm.synchronize()
+        # record_sync = comm.gather(record, dst=0)
 
-        if comm.is_main_process():
-            record = {}
-            for _ in range(len(record_sync)):
-                r = record_sync.pop()
-                record.update(r)
-                del r
-            intersection = np.sum(
-                [meters["intersection"] for _, meters in record.items()], axis=0
-            )
-            union = np.sum([meters["union"] for _, meters in record.items()], axis=0)
-            target = np.sum([meters["target"] for _, meters in record.items()], axis=0)
+        # if comm.is_main_process():
+        #     record = {}
+        #     for _ in range(len(record_sync)):
+        #         r = record_sync.pop()
+        #         record.update(r)
+        #         del r
+        #     intersection = np.sum(
+        #         [meters["intersection"] for _, meters in record.items()], axis=0
+        #     )
+        #     union = np.sum([meters["union"] for _, meters in record.items()], axis=0)
+        #     target = np.sum([meters["target"] for _, meters in record.items()], axis=0)
 
-            iou_class = intersection / (union + 1e-10)
-            accuracy_class = intersection / (target + 1e-10)
-            mIoU = np.mean(iou_class)
-            mAcc = np.mean(accuracy_class)
-            allAcc = sum(intersection) / (sum(target) + 1e-10)
+        #     iou_class = intersection / (union + 1e-10)
+        #     accuracy_class = intersection / (target + 1e-10)
+        #     mIoU = np.mean(iou_class)
+        #     mAcc = np.mean(accuracy_class)
+        #     allAcc = sum(intersection) / (sum(target) + 1e-10)
 
-            logger.info(
-                "Val result: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}".format(
-                    mIoU, mAcc, allAcc
-                )
-            )
-            for i in range(self.cfg.data.num_classes):
-                logger.info(
-                    "Class_{idx} - {name} Result: iou/accuracy {iou:.4f}/{accuracy:.4f}".format(
-                        idx=i,
-                        name=self.cfg.data.names[i],
-                        iou=iou_class[i],
-                        accuracy=accuracy_class[i],
-                    )
-                )
-            logger.info("<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<")
+        #     logger.info(
+        #         "Val result: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}".format(
+        #             mIoU, mAcc, allAcc
+        #         )
+        #     )
+        #     for i in range(self.cfg.data.num_classes):
+        #         logger.info(
+        #             "Class_{idx} - {name} Result: iou/accuracy {iou:.4f}/{accuracy:.4f}".format(
+        #                 idx=i,
+        #                 name=self.cfg.data.names[i],
+        #                 iou=iou_class[i],
+        #                 accuracy=accuracy_class[i],
+        #             )
+        #         )
+        #     logger.info("<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<")
 
     @staticmethod
     def collate_fn(batch):
