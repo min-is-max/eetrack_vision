@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
+from std_msgs.msg import Float64MultiArray, MultiArrayDimension, MultiArrayLayout
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -50,7 +51,41 @@ class ZedCaptureNode(Node):
             except Exception as e:
                 self.get_logger().error(f"Error capturing zed topics: {e}")
 
-def main(args=None):
+class PublishWeldpointsNode(Node):
+    # get 2 x 3 numpy array for endpoints in the welding line obtained.
+    def __init__(self, points: np.ndarray):
+        super().__init__("weldpoint_publish_node")
+        self.TOPIC_NAME = "eetrack_vision/weldpoints"
+        assert points.shape == (2, 3), f"Array shape mismatch. Got {points.shape}. Expected (2, 3) shape array for welding line endpoints"
+        self.points = points
+        self.publisher = self.create_publisher(Float64MultiArray, self.TOPIC_NAME, 10)
+        # create a timer
+        timer_period = 0.5
+        self.timer = self.create_timer(timer_period, self.publish_weldpoints)
+
+    def publish_weldpoints(self):
+        # prepare msg data
+        msg = Float64MultiArray()
+        msg.data = list(self.points.flatten())
+
+        row_dim = MultiArrayDimension()
+        row_dim.label = "rows"
+        row_dim.size = 2
+        row_dim.stride = 3
+
+        col_dim = MultiArrayDimension()
+        col_dim.label = "columns"
+        col_dim.size = 3
+        col_dim.stride = 1
+
+        msg.layout = MultiArrayLayout()
+        msg.layout.dim = [row_dim, col_dim]
+        msg.layout.data_offset = 0
+
+        self.publisher.publish(msg)
+        self.get_logger().info(f"Publishing {self.TOPIC_NAME}: {msg}") # just log msg.data for conciseness
+
+def get_zed_images(args=None):
     rclpy.init(args=args)
     for topic, file, in zip([G1_TOPIC_LEFT_COLOR, G1_TOPIC_RIGHT_COLOR, G1_TOPIC_CAMERA_INFO], [G1_INPUT_IMAGE_LEFT, G1_INPUT_IMAGE_RIGHT, G1_INPUT_IMAGE_INTRINSIC]):
         node = ZedCaptureNode(topic, file)
@@ -59,5 +94,14 @@ def main(args=None):
         node.destroy_node()
     rclpy.shutdown()
 
+def publish_weldpoints(points, args=None):
+    rclpy.init(args=args)
+    node = PublishWeldpointsNode(points)
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
 if __name__ == "__main__":
-    main()
+    # default: get zed images and info (left, right, and intrinsic K)
+    get_zed_images()
+    # publish_weldpoints(np.random.random(size=(2,3)))

@@ -44,6 +44,11 @@ try:
 except:
     pointops = None
 
+# dirty hack
+import sys
+sys.path.insert(1, "/".join(os.path.realpath(__file__).split('/')[0:-4:])
+from tools.rostopic import publish_weldpoints
+
 
 TESTERS = Registry("testers")
 
@@ -1520,9 +1525,8 @@ class SimpleSemSegTester(TesterBase):
             # `spl_pcd`: publish as ROS topic
             spl_pcd = get_point_cloud(res["curve_points"], color=np.array([[0, 1, 1]]), verbose=False)[0]
             print("Wielding Endpoints Publish")
-            print(np.asarray(spl_pcd.points).shape)
-            print("contents:")
-            print(np.asarray(spl_pcd.points))
+            publish_weldpoints(np.asarray(spl_pcd.points)[[0, -1], :]) # first and last points in the point cloud. Requires modification.
+
             visible_edge_pcd = get_point_cloud(data_dict["visible_edge"][0], color=np.array([[0, 1, 0]]), verbose=False)[0]
             line_gt_err = np.mean(visible_edge_pcd.compute_point_cloud_distance(spl_gt_pcd))
             line_gt_errs.append(line_gt_err)
