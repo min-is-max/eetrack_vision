@@ -98,6 +98,37 @@ def list_frames_mixed(left_col_dir: Path) -> List[Path]:
     return sorted(list(left_col_dir.glob("*.png")) + list(left_col_dir.glob("*.jpg")) + list(left_col_dir.glob("*.jpeg")))
 
 # -------- geometry / spline --------
+def point_cloud_from_rgbd(
+    color, depth, intrinsic, extrinsic=np.eye(4),
+    depth_scale=1000.0, depth_trunc=np.inf,
+):
+    h, w = color.shape[:2]
+    color_o3d = o3d.geometry.Image(color)
+    depth_o3d = o3d.geometry.Image(depth)
+
+    # Camera intrinsics (adjust to your sensor)
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(
+        width=w,
+        height=h,
+        intrinsic_matrix=intrinsic,
+    )
+    # Create RGBD image
+    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+        color=color_o3d,
+        depth=depth_o3d,
+        convert_rgb_to_intensity=False,
+        depth_scale=depth_scale,  # if depth is in mm
+        depth_trunc=depth_trunc,      # ignore depth > 5m
+    )
+
+    # Generate point cloud
+    pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
+        image=rgbd,
+        intrinsic=intrinsics,
+        extrinsic=extrinsic,
+    )
+
+    return pcd
 
 def backproject_uv_to_xyz(u: np.ndarray, v: np.ndarray, depth_m: np.ndarray, K: np.ndarray) -> np.ndarray:
     fx, fy = K[0, 0], K[1, 1]
@@ -347,6 +378,7 @@ def process_frame(
 
     est_depth_m = est_depth.astype(np.float32) / 1000.0
     uu_full, vv_full = np.meshgrid(np.arange(W), np.arange(H))
+    o3d.visualization.draw_geometries([point_cloud_from_rgbd(left_color, est_depth, K)])
     uu_v = uu_full[valid].astype(np.int32)
     vv_v = vv_full[valid].astype(np.int32)
     coord = backproject_uv_to_xyz(uu_v, vv_v, est_depth_m[vv_v, uu_v], K)
