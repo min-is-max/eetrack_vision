@@ -1519,6 +1519,10 @@ class SimpleSemSegTester(TesterBase):
             spl_gt_pcd = get_point_cloud(res_gt["curve_points"], color=np.array([[1, 0, 1]]), verbose=False)[0]
             # `spl_pcd`: publish as ROS topic
             spl_pcd = get_point_cloud(res["curve_points"], color=np.array([[0, 1, 1]]), verbose=False)[0]
+            print("Wielding Endpoints Publish")
+            print(np.asarray(spl_pcd.points).shape)
+            print("contents:")
+            print(np.asarray(spl_pcd.points))
             visible_edge_pcd = get_point_cloud(data_dict["visible_edge"][0], color=np.array([[0, 1, 0]]), verbose=False)[0]
             line_gt_err = np.mean(visible_edge_pcd.compute_point_cloud_distance(spl_gt_pcd))
             line_gt_errs.append(line_gt_err)
